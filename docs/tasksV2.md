@@ -47,6 +47,17 @@ A Funcionalidade A consiste em fornecer ao usuário duas estimativas simultânea
 - [ ] **Testes E2E (Simulados):**
   - Validar o fluxo completo desde a submissão até a exibição de ambos os cards no frontend.
 
+### 6. `feature/tech-docs-observability`
+- [ ] **TSDoc e Documentação de Código:**
+  - Adicionar anotações TSDoc (`@param`, `@returns`, `@description`) em todas as interfaces de domínio (`IAIService.ts`, `types.ts`).
+  - Documentar métodos core dos Controllers e Services.
+- [ ] **Automação OpenAPI (Swagger):**
+  - Instalar e configurar `zod-to-openapi` e `swagger-ui-express`.
+  - Mapear os schemas Zod atuais para definições OpenAPI.
+  - Expor endpoint `/api-docs` para documentação interativa.
+- [ ] **Documentação de Prompts:**
+  - Criar `docs/prompts/` para versionar os System Prompts e estratégias de engenharia de prompt separadamente do código.
+
 ---
 
 ## 📈 Impactos Arquiteturais
