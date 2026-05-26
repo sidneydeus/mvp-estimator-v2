@@ -1,0 +1,17 @@
+services:
+  api:
+    build:
+      context: .
+      target: builder # Usa o estágio builder para ter devDependencies no dev mode
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - VITE=true
+    command: npm run dev
