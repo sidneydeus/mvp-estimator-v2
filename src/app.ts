@@ -1,14 +1,20 @@
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import { errorHandler } from './middlewares/errorHandler';
 import { sendSuccess } from './utils/response';
 import { logger } from './utils/logger';
 import estimatesRoutes from './routes/estimates.routes';
+import { generateOpenApiDocument } from './schemas/openapi';
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Documentação API
+const openApiDocument = generateOpenApiDocument();
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 // Configuração de Timeout para 60 segundos (conforme PRD)
 app.use((req, res, next) => {
