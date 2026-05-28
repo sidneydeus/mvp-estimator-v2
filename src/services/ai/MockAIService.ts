@@ -2,7 +2,18 @@ import { AICodeGenerationPricing, BacklogResult, IAIService } from './IAIService
 import { logger } from '../../utils/logger';
 import { estimateAICodeGeneration } from './AICodeGenerationEstimator';
 
+/**
+ * Mock implementation of IAIService for development and testing.
+ * Returns a static, predefined backlog without calling any external LLM APIs.
+ */
 export class MockAIService implements IAIService {
+  /**
+   * Generates a simulated project backlog with a fixed structure and a 2-second delay.
+   * 
+   * @param ideaDescription - The user's input idea (used for the generated vision statement)
+   * @param pricing - Optional pricing configuration for cost calculation
+   * @returns A promise resolving to a mock BacklogResult
+   */
   async generateBacklog(
     ideaDescription: string,
     pricing?: AICodeGenerationPricing,

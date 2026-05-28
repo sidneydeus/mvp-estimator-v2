@@ -4,6 +4,10 @@ import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { estimateAICodeGeneration } from './AICodeGenerationEstimator';
 
+/**
+ * Zod schema for validating and normalizing token ranges received from the LLM.
+ * Ensures that min <= max.
+ */
 function tokenRangeSchema() {
   return z
     .object({
@@ -19,6 +23,9 @@ function tokenRangeSchema() {
     });
 }
 
+/**
+ * Zod schema for validating the full backlog response from the LLM.
+ */
 const backlogResultSchema = z.object({
   vision: z.string(),
   epics: z.array(
@@ -53,6 +60,9 @@ const backlogResultSchema = z.object({
   }),
 });
 
+/**
+ * Schema for standard OpenAI-compatible chat completion responses.
+ */
 const openAIChatResponseSchema = z.object({
   choices: z.array(
     z.object({
@@ -63,6 +73,9 @@ const openAIChatResponseSchema = z.object({
   ),
 });
 
+/**
+ * Schema for error responses from the OpenAI API.
+ */
 const openAIErrorSchema = z.object({
   error: z.object({
     message: z.string(),
@@ -71,13 +84,20 @@ const openAIErrorSchema = z.object({
   }),
 });
 
+/**
+ * Schema for generic AI provider errors.
+ */
 const genericProviderErrorSchema = z.object({
   error: z.string(),
   code: z.string().nullable().optional(),
 });
 
 /**
- * Limpa a string de resposta da LLM para garantir que seja um JSON válido.
+ * Cleans the string content returned by the LLM to ensure it is valid JSON.
+ * Removes markdown code blocks and trims whitespace.
+ * 
+ * @param content - The raw string content from the LLM
+ * @returns Cleaned JSON string
  */
 function cleanJsonContent(content: string): string {
   let cleaned = content.trim();
@@ -86,7 +106,19 @@ function cleanJsonContent(content: string): string {
   return cleaned.trim();
 }
 
+/**
+ * Implementation of IAIService that uses OpenAI-compatible LLMs (e.g., GPT-4, Groq, etc.).
+ */
 export class OpenAIService implements IAIService {
+  /**
+   * Generates a project backlog by prompting an LLM and parsing its JSON response.
+   * 
+   * @param ideaDescription - The natural language description of the project idea
+   * @param pricing - Optional pricing configuration for cost calculation
+   * @returns A promise resolving to the validated BacklogResult
+   * @throws 500 if AI_API_KEY is missing
+   * @throws 502 if the provider returns an error or invalid response
+   */
   async generateBacklog(
     ideaDescription: string,
     pricing?: AICodeGenerationPricing,
@@ -173,6 +205,12 @@ export class OpenAIService implements IAIService {
     }
   }
 
+  /**
+   * Constructs the structured prompt for the LLM.
+   * 
+   * @param ideaDescription - The user's input idea
+   * @returns The formatted prompt string
+   */
   private buildPrompt(ideaDescription: string): string {
     return `
 Gere um backlog inicial para estimar o desenvolvimento de um MVP a partir da ideia abaixo.
@@ -229,10 +267,21 @@ Regras cruciais:
 `.trim();
   }
 
+  /**
+   * Formats the base URL for the chat completions endpoint.
+   * 
+   * @returns Fully qualified chat completions URL
+   */
   private chatCompletionsUrl(): string {
     return `${env.AI_BASE_URL.replace(/\/$/, '')}/chat/completions`;
   }
 
+  /**
+   * Attempts to parse detailed error information from the AI provider response.
+   * 
+   * @param response - The raw fetch Response object
+   * @returns A parsed error object with client-safe and log-friendly messages
+   */
   private async parseProviderError(response: Response): Promise<{
     clientMessage: string;
     logMessage: string;
@@ -270,6 +319,12 @@ Regras cruciais:
     return this.providerErrorMessage({ status: response.status, code, message, type });
   }
 
+  /**
+   * Maps provider-specific status codes and error codes to human-readable messages.
+   * 
+   * @param params - Status code and error details from the provider
+   * @returns Normalized error messages
+   */
   private providerErrorMessage({
     status,
     code,

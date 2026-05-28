@@ -8,8 +8,23 @@ import {
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 
+/**
+ * Type representing a BacklogResult without the final AI code generation estimate.
+ * Used internally during the calculation process.
+ */
 type BacklogWithoutAIEstimate = Omit<BacklogResult, 'aiCodeGenerationEstimate'>;
 
+/**
+ * Calculates a comprehensive estimate for AI-assisted code generation.
+ * 
+ * This function aggregates tokens across all epics and stories, applies the 
+ * configured pricing, and calculates the total functional cost based on 
+ * estimated development hours.
+ * 
+ * @param backlog - The validated backlog result from the LLM
+ * @param pricing - Optional pricing overrides from the request
+ * @returns A detailed AICodeGenerationEstimate object
+ */
 export const estimateAICodeGeneration = (
   backlog: BacklogWithoutAIEstimate,
   pricing?: AICodeGenerationPricing,
@@ -135,6 +150,12 @@ export const estimateAICodeGeneration = (
   };
 };
 
+/**
+ * Normalizes a token estimate object by ensuring all ranges are valid.
+ * 
+ * @param tokenEstimate - The raw token estimate to normalize
+ * @returns A normalized AITokenEstimate
+ */
 const normalizeTokenEstimate = (tokenEstimate: AITokenEstimate): AITokenEstimate => ({
   planningAndContextTokens: normalizeRange(tokenEstimate.planningAndContextTokens),
   codeGenerationInputTokens: { min: 0, max: 0 }, // Será preenchido pela soma das histórias
@@ -143,6 +164,12 @@ const normalizeTokenEstimate = (tokenEstimate: AITokenEstimate): AITokenEstimate
   validationAndFixOutputTokens: normalizeRange(tokenEstimate.validationAndFixOutputTokens),
 });
 
+/**
+ * Ensures a numeric range has min <= max and all values >= 0.
+ * 
+ * @param range - The range to normalize
+ * @returns A validated TokenRange
+ */
 const normalizeRange = (range: TokenRange): TokenRange => {
   if (!range) return { min: 0, max: 0 };
   return {
@@ -151,9 +178,23 @@ const normalizeRange = (range: TokenRange): TokenRange => {
   };
 };
 
+/**
+ * Utility to sum multiple numeric values.
+ * 
+ * @param values - Numbers to sum
+ * @returns Total sum
+ */
 const sumValues = (...values: number[]): number =>
   values.reduce((total, current) => total + (current || 0), 0);
 
+/**
+ * Calculates financial cost based on token counts and pricing configuration.
+ * 
+ * @param inputTokens - Number of input tokens
+ * @param outputTokens - Number of output tokens
+ * @param pricing - Pricing configuration
+ * @returns Calculated cost (USD)
+ */
 const calculateCost = (
   inputTokens: number,
   outputTokens: number,
@@ -168,11 +209,20 @@ const calculateCost = (
   return Number(total.toFixed(4));
 };
 
+/**
+ * Formats a token range into a human-readable string.
+ */
 const formatTokenRange = (min: number, max: number): string =>
   `${formatInteger(min)} - ${formatInteger(max)} tokens`;
 
+/**
+ * Formats an integer with thousands separators.
+ */
 const formatInteger = (value: number): string => new Intl.NumberFormat('en-US').format(value);
 
+/**
+ * Formats a number as USD currency.
+ */
 const formatCurrency = (value: number): string =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
