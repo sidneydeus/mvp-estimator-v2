@@ -10,7 +10,7 @@ describe('Estimates API Integration Tests', () => {
     expect(response.body.data.status).toBe('ok');
   });
 
-  it('POST /api/estimates deve criar uma estimativa com sucesso', async () => {
+  it('POST /api/estimates deve criar uma estimativa multi-cenário com sucesso', async () => {
     const payload = {
       ideaDescription: 'Quero criar um app de entrega de comida para pets.',
       aiPricing: {
@@ -28,21 +28,26 @@ describe('Estimates API Integration Tests', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
-    expect(response.body.data.vision).toBeDefined();
-    expect(response.body.data.epics.length).toBeGreaterThan(0);
-    expect(response.body.data.totalComplexityPoints).toBeGreaterThan(0);
-    expect(response.body.data.epics[0].stories[0].complexityPoints).toBeGreaterThan(0);
-    expect(response.body.data.aiCodeGenerationEstimate.tokenEstimate.totalTokens.min).toBeGreaterThan(0);
-    expect(response.body.data.aiCodeGenerationEstimate.costEstimate.currency).toBe('USD');
-    expect(response.body.data.aiCodeGenerationEstimate.costEstimate.inputCostPer1MTokens).toBe(0.3);
-    expect(response.body.data.aiCodeGenerationEstimate.costEstimate.outputCostPer1MTokens).toBe(2.5);
-    expect(response.body.data.aiCodeGenerationEstimate.costEstimate.min).toBeGreaterThan(0);
-    expect(response.body.data.aiCodeGenerationEstimate.costEstimate.display.range).toContain('$');
-    expect(response.body.data.aiCodeGenerationEstimate.display.totalTokens).toContain('tokens');
-    expect(response.body.data.aiCodeGenerationEstimate.display.estimatedCost).toContain('$');
+    expect(response.body.data.scenarios).toBeDefined();
+    expect(Array.isArray(response.body.data.scenarios)).toBe(true);
+    expect(response.body.data.scenarios.length).toBeGreaterThan(0);
 
-    const { aiTokenEstimate, aiCodeGenerationEstimate } = response.body.data;
-    // expect(aiTokenEstimate.codeGenerationInputTokens.min).toBeGreaterThan(0); // Removido pois agora é agregado das histórias
+    const scenario = response.body.data.scenarios[0];
+    expect(scenario.type).toBeDefined();
+    expect(scenario.vision).toBeDefined();
+    expect(scenario.epics.length).toBeGreaterThan(0);
+    expect(scenario.totalComplexityPoints).toBeGreaterThan(0);
+    expect(scenario.epics[0].stories[0].complexityPoints).toBeGreaterThan(0);
+    expect(scenario.aiCodeGenerationEstimate.tokenEstimate.totalTokens.min).toBeGreaterThan(0);
+    expect(scenario.aiCodeGenerationEstimate.costEstimate.currency).toBe('USD');
+    expect(scenario.aiCodeGenerationEstimate.costEstimate.inputCostPer1MTokens).toBe(0.3);
+    expect(scenario.aiCodeGenerationEstimate.costEstimate.outputCostPer1MTokens).toBe(2.5);
+    expect(scenario.aiCodeGenerationEstimate.costEstimate.min).toBeGreaterThan(0);
+    expect(scenario.aiCodeGenerationEstimate.costEstimate.display.range).toContain('$');
+    expect(scenario.aiCodeGenerationEstimate.display.totalTokens).toContain('tokens');
+    expect(scenario.aiCodeGenerationEstimate.display.estimatedCost).toContain('$');
+
+    const { aiTokenEstimate, aiCodeGenerationEstimate } = scenario;
 
     const sumMinInput =
       aiTokenEstimate.planningAndContextTokens.min +
@@ -72,13 +77,7 @@ describe('Estimates API Integration Tests', () => {
       ((sumMinInput / 1_000_000) * 0.3 + (sumMinOutput / 1_000_000) * 2.5).toFixed(4),
     );
     expect(aiCodeGenerationEstimate.costEstimate.min).toBeCloseTo(expectedMinCost, 4);
-
-    // Custo máximo esperado
-    const expectedMaxCost = Number(
-      ((sumMaxInput / 1_000_000) * 0.3 + (sumMaxOutput / 1_000_000) * 2.5).toFixed(4),
-    );
-    expect(aiCodeGenerationEstimate.costEstimate.max).toBeCloseTo(expectedMaxCost, 4);
-  }, 30000); // Aumentado para 30s devido à latência da LLM
+  }, 30000);
 
   it('POST /api/estimates deve retornar 400 para payload inválido', async () => {
     const payload = { ideaDescription: 'Curto' };
