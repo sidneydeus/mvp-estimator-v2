@@ -2,16 +2,17 @@ import {
   AICodeGenerationEstimate,
   AICodeGenerationPricing,
   AITokenEstimate,
-  BacklogResult,
+  ScenarioResult,
+  ScenarioType,
   TokenRange,
 } from './IAIService';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 
-type BacklogWithoutAIEstimate = Omit<BacklogResult, 'aiCodeGenerationEstimate'>;
+type ScenarioWithoutAIEstimate = Omit<ScenarioResult, 'aiCodeGenerationEstimate'>;
 
 export const estimateAICodeGeneration = (
-  backlog: BacklogWithoutAIEstimate,
+  scenario: ScenarioWithoutAIEstimate,
   pricing?: AICodeGenerationPricing,
 ): AICodeGenerationEstimate => {
   // Garantir que temos valores de pricing, mesmo que o objeto venha parcial ou nulo
@@ -22,7 +23,7 @@ export const estimateAICodeGeneration = (
     hourlyRate: pricing?.hourlyRate ?? 50.0, // Valor padrão realista para desenvolvimento
   };
 
-  const normalizedTokenEstimate = normalizeTokenEstimate(backlog.aiTokenEstimate);
+  const normalizedTokenEstimate = normalizeTokenEstimate(scenario.aiTokenEstimate);
 
   // Somar tokens de todas as histórias
   let storyInputMin = 0;
@@ -30,7 +31,7 @@ export const estimateAICodeGeneration = (
   let storyOutputMin = 0;
   let storyOutputMax = 0;
 
-  backlog.epics.forEach((epic) => {
+  scenario.epics.forEach((epic) => {
     epic.stories.forEach((story) => {
       const tokens = story.estimatedTokens || {
         input: { min: 0, max: 0 },
@@ -43,35 +44,54 @@ export const estimateAICodeGeneration = (
     });
   });
 
-  const inputMin = sumValues(
+  const baseInputMin = sumValues(
     normalizedTokenEstimate.planningAndContextTokens.min,
     storyInputMin,
     normalizedTokenEstimate.validationAndFixInputTokens.min,
   );
-  const inputMax = sumValues(
+  const baseInputMax = sumValues(
     normalizedTokenEstimate.planningAndContextTokens.max,
     storyInputMax,
     normalizedTokenEstimate.validationAndFixInputTokens.max,
   );
 
-  const outputMin = sumValues(
+  const baseOutputMin = sumValues(
     storyOutputMin,
     normalizedTokenEstimate.validationAndFixOutputTokens.min,
   );
-  const outputMax = sumValues(
+  const baseOutputMax = sumValues(
     storyOutputMax,
     normalizedTokenEstimate.validationAndFixOutputTokens.max,
   );
+
+  // Multiplicadores de Segurança
+  // O planejamento exige que ENTERPRISE custe pelo menos 2.5x a 4.0x o LEAN (neste caso, aplicamos um fator se for ENTERPRISE para garantir robustez, ou a IA já cuida disso. Como a IA pode subestimar, vamos aplicar um modificador de segurança de 1.5x aos tokens/horas do Enterprise)
+  const isEnterprise = scenario.type === ScenarioType.ENTERPRISE;
+  const securityMultiplier = isEnterprise ? 1.5 : 1.0;
+
+  const inputMin = Math.round(baseInputMin * securityMultiplier);
+  const inputMax = Math.round(baseInputMax * securityMultiplier);
+  const outputMin = Math.round(baseOutputMin * securityMultiplier);
+  const outputMax = Math.round(baseOutputMax * securityMultiplier);
 
   const minCost = calculateCost(inputMin, outputMin, effectivePricing);
   const maxCost = calculateCost(inputMax, outputMax, effectivePricing);
   const averageCost = Number(((minCost + maxCost) / 2).toFixed(4));
 
   // Cálculo do Custo Funcional baseado nas horas estimadas e na taxa horária
-  const avgHours = (backlog.estimatedHours.min + backlog.estimatedHours.max) / 2;
+  const baseAvgHours = (scenario.estimatedHours.min + scenario.estimatedHours.max) / 2;
+  const avgHours = baseAvgHours * securityMultiplier;
+  
+  if (isEnterprise) {
+      scenario.estimatedHours.min = Math.round(scenario.estimatedHours.min * securityMultiplier);
+      scenario.estimatedHours.max = Math.round(scenario.estimatedHours.max * securityMultiplier);
+      scenario.totalComplexityPoints = Math.round(scenario.totalComplexityPoints * securityMultiplier);
+  }
+  
   const functionalCost = avgHours * (effectivePricing.hourlyRate || 50.0);
 
   logger.info('Cálculo de custo IA finalizado', {
+    scenarioType: scenario.type,
     inputMin,
     inputMax,
     outputMin,
@@ -86,7 +106,7 @@ export const estimateAICodeGeneration = (
   return {
     assumptions: {
       workflow:
-        'Estimativa para geração assistida por IA com prompts iterativos, contexto de arquitetura, geração de código, testes, revisão e correções.',
+        'Estimativa para geração assistida por IA com prompts iterativos, contexto de arquitetura, geração de código, testes, revisão e correções.' + (isEnterprise ? ' Inclui multiplicador de complexidade Enterprise (1.5x).' : ''),
       includes: [
         'backend/API',
         'modelos e validações',
@@ -102,8 +122,8 @@ export const estimateAICodeGeneration = (
     },
     tokenEstimate: {
       ...normalizedTokenEstimate,
-      codeGenerationInputTokens: { min: storyInputMin, max: storyInputMax },
-      codeGenerationOutputTokens: { min: storyOutputMin, max: storyOutputMax },
+      codeGenerationInputTokens: { min: Math.round(storyInputMin * securityMultiplier), max: Math.round(storyInputMax * securityMultiplier) },
+      codeGenerationOutputTokens: { min: Math.round(storyOutputMin * securityMultiplier), max: Math.round(storyOutputMax * securityMultiplier) },
       totalInputTokens: { min: inputMin, max: inputMax },
       totalOutputTokens: { min: outputMin, max: outputMax },
       totalTokens: { min: inputMin + outputMin, max: inputMax + outputMax },

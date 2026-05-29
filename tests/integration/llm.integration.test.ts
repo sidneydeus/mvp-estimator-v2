@@ -17,21 +17,25 @@ describe('Real LLM Integration Test', () => {
 
       // Validações básicas de estrutura
       expect(result).toBeDefined();
-      expect(result.vision).toBeTypeOf('string');
-      expect(result.epics.length).toBeGreaterThan(0);
+      expect(result.scenarios).toBeDefined();
+      expect(result.scenarios.length).toBeGreaterThan(0);
+      
+      const firstScenario = result.scenarios[0];
+      expect(firstScenario.vision).toBeTypeOf('string');
+      expect(firstScenario.epics.length).toBeGreaterThan(0);
       
       // Valida se os campos que costumam dar erro estão presentes e corretos
-      const firstEpic = result.epics[0];
+      const firstEpic = firstScenario.epics[0];
       const firstStory = firstEpic.stories[0];
       
       expect(firstStory.complexityPoints).toBeDefined();
       expect(typeof firstStory.complexityPoints).toBe('number');
       
-      expect(result.aiTokenEstimate).toBeDefined();
-      expect(result.aiCodeGenerationEstimate).toBeDefined();
+      expect(firstScenario.aiTokenEstimate).toBeDefined();
+      expect(firstScenario.aiCodeGenerationEstimate).toBeDefined();
       
       console.log('--- TESTE REAL SUCESSO ---');
-      console.log('Custo estimado retornado:', result.aiCodeGenerationEstimate?.display.estimatedCost);
+      console.log('Custo estimado retornado:', firstScenario.aiCodeGenerationEstimate?.display.estimatedCost);
     } catch (error) {
       console.error('--- FALHA NO TESTE REAL ---');
       console.error(error);

@@ -56,6 +56,8 @@ const scenarioResultSchema = z.object({
   }),
   aiTokenEstimate: z.object({
     planningAndContextTokens: tokenRangeSchema(),
+    codeGenerationInputTokens: tokenRangeSchema().default({ min: 0, max: 0 }),
+    codeGenerationOutputTokens: tokenRangeSchema().default({ min: 0, max: 0 }),
     validationAndFixInputTokens: tokenRangeSchema(),
     validationAndFixOutputTokens: tokenRangeSchema(),
   }),

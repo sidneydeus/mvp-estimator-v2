@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { estimateAICodeGeneration } from '../../src/services/ai/AICodeGenerationEstimator';
-import { AITokenEstimate } from '../../src/services/ai/IAIService';
+import { AITokenEstimate, ScenarioType } from '../../src/services/ai/IAIService';
 
 describe('AICodeGenerationEstimator', () => {
   it('deve calcular corretamente o custo médio, mínimo e máximo a partir das stories', () => {
     const mockBacklog = {
+      type: ScenarioType.LEAN,
       vision: 'Test vision',
       epics: [
         {
@@ -78,6 +79,7 @@ describe('AICodeGenerationEstimator', () => {
 
   it('deve usar valores do ambiente se pricing for omitido', () => {
     const mockBacklog = {
+        type: ScenarioType.LEAN,
         vision: 'Test vision',
         epics: [],
         totalComplexityPoints: 0,
