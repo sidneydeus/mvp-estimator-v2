@@ -71,7 +71,13 @@ export interface AICodeGenerationEstimate {
   };
 }
 
-export interface BacklogResult {
+export enum ScenarioType {
+  LEAN = 'LEAN',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
+export interface ScenarioResult {
+  type: ScenarioType;
   vision: string;
   epics: Epic[];
   totalComplexityPoints: number;
@@ -81,6 +87,10 @@ export interface BacklogResult {
   };
   aiTokenEstimate: AITokenEstimate;
   aiCodeGenerationEstimate: AICodeGenerationEstimate;
+}
+
+export interface BacklogResult {
+  scenarios: ScenarioResult[];
 }
 
 export interface ApiSuccess<T> {
@@ -104,4 +114,3 @@ export interface ApiError {
 }
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiError;
-
