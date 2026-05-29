@@ -138,9 +138,10 @@ export class OpenAIService implements IAIService {
       });
     }
 
+    const url = this.chatCompletionsUrl();
     logger.info(`Gerando backlog multi-cenário via LLM (${env.AI_MODEL})...`);
 
-    const response = await fetch(this.chatCompletionsUrl(), {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${env.AI_API_KEY}`,

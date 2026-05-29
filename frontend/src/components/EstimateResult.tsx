@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BacklogResult, ScenarioType, ScenarioResult } from '../domain/types';
+import { ScenarioType, ScenarioResult } from '../domain/types';
 import { ExportMarkdownButton } from './ExportMarkdownButton';
 
 const EPIC_COLORS = [
@@ -10,30 +10,71 @@ const EPIC_COLORS = [
   'epic-index-4',
 ];
 
-export function EstimateResult(props: { result: BacklogResult }) {
+export function EstimateResult(props: { result: any }) {
   const { result } = props;
   const [activeScenarioIdx, setActiveScenarioIdx] = useState(0);
+  const [showRaw, setShowRaw] = useState(false);
 
-  const activeScenario = result.scenarios[activeScenarioIdx];
+  console.log('DEBUG: Prop result recebida:', result);
+
+  // Normalização robusta dos dados
+  let scenarios: ScenarioResult[] = [];
+
+  if (result?.scenarios && Array.isArray(result.scenarios)) {
+    scenarios = result.scenarios;
+  } else if (result?.epics && Array.isArray(result.epics)) {
+    console.warn('AVISO: Formato legado detectado. Convertendo.');
+    scenarios = [{
+      type: ScenarioType.LEAN,
+      vision: result.vision || 'Visão não disponível',
+      epics: result.epics,
+      totalComplexityPoints: result.totalComplexityPoints || 0,
+      estimatedHours: result.estimatedHours || { min: 0, max: 0 },
+      aiTokenEstimate: result.aiTokenEstimate,
+      aiCodeGenerationEstimate: result.aiCodeGenerationEstimate
+    }];
+  }
+
+  if (scenarios.length === 0) {
+    return (
+      <div className="card fade-in callout danger">
+        <strong>Erro de Estrutura:</strong> Não foi possível encontrar dados de cenários ou épicos.
+        <pre style={{ fontSize: 10, marginTop: 10 }}>{JSON.stringify(result, null, 2)}</pre>
+      </div>
+    );
+  }
+
+  const activeScenario = scenarios[activeScenarioIdx] || scenarios[0];
 
   return (
     <div className="fade-in">
       {/* Header */}
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h3 className="sectionTitle" style={{ margin: 0 }}>2 — Comparativo de Cenários</h3>
-        <ExportMarkdownButton result={result} />
+        <div className="row">
+          <button className="btn" onClick={() => setShowRaw(!showRaw)}>
+            {showRaw ? '👁 Ver UI' : '🛠 Debug JSON'}
+          </button>
+          <ExportMarkdownButton result={{ scenarios }} />
+        </div>
       </div>
 
-      {/* Scenarios Grid */}
+      {showRaw && (
+        <pre className="card" style={{ fontSize: 11, overflow: 'auto', maxHeight: 400, background: '#000', color: '#0f0' }}>
+          {JSON.stringify(result, null, 2)}
+        </pre>
+      )}
+
+      {/* Scenarios Comparison Grid */}
       <div className="scenarios-grid">
-        {result.scenarios.map((scenario, idx) => (
+        {scenarios.map((scenario, idx) => (
           <div 
-            key={scenario.type} 
-            className={`scenario-card \${activeScenarioIdx === idx ? 'active' : ''}`}
+            key={scenario.type + idx} 
+            className={`scenario-card ${activeScenarioIdx === idx ? 'active' : ''}`}
             onClick={() => setActiveScenarioIdx(idx)}
           >
             <div className="scenario-header">
-              <span className={`scenario-badge \${scenario.type.toLowerCase()}`}>
+              <span className={`scenario-badge ${scenario.type.toLowerCase()}`}>
                 {scenario.type === ScenarioType.LEAN ? '⚡ Lean' : '🏛 Enterprise'}
               </span>
               <span className="scenario-tag">
@@ -43,7 +84,7 @@ export function EstimateResult(props: { result: BacklogResult }) {
 
             <div className="scenario-main-stat">
               <span className="stat-label">⏱ Esforço</span>
-              <span className="stat-value">{scenario.estimatedHours.min}h - {scenario.estimatedHours.max}h</span>
+              <span className="stat-value">{scenario.estimatedHours?.min || 0}h - {scenario.estimatedHours?.max || 0}h</span>
             </div>
 
             <div className="scenario-stats-row">
@@ -52,8 +93,8 @@ export function EstimateResult(props: { result: BacklogResult }) {
                 <span className="stat-value">{scenario.totalComplexityPoints} pts</span>
               </div>
               <div className="small-stat">
-                <span className="stat-label">💰 Custo IA (Média)</span>
-                <span className="stat-value">{scenario.aiCodeGenerationEstimate.display.estimatedCost}</span>
+                <span className="stat-label">💰 Custo IA</span>
+                <span className="stat-value">{scenario.aiCodeGenerationEstimate?.display?.estimatedCost || 'N/A'}</span>
               </div>
             </div>
 
@@ -64,75 +105,72 @@ export function EstimateResult(props: { result: BacklogResult }) {
         ))}
       </div>
 
-      <p className="muted" style={{ margin: '16px 0', fontSize: 12, textAlign: 'center' }}>
-        ⚠ Selecione um cenário acima para ver o backlog detalhado e a visão do produto.
-      </p>
-
-      {/* Details Area */}
+      {/* Details Area for Selected Scenario */}
       <div className="card active-scenario-details">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 className="sectionTitle" style={{ margin: 0 }}>
-            Detalhes: {activeScenario.type === ScenarioType.LEAN ? 'Cenário Lean' : 'Cenário Enterprise'}
+            Backlog: {activeScenario.type === ScenarioType.LEAN ? 'Cenário Lean' : 'Cenário Enterprise'}
           </h3>
           <div className="badge accent">
-            Custo Funcional Est.: {activeScenario.aiCodeGenerationEstimate.display.complexityTotalCost}
+            Custo Funcional: {activeScenario.aiCodeGenerationEstimate?.display?.complexityTotalCost || 'N/A'}
           </div>
         </div>
 
-        {/* Vision */}
         <div className="vision-block" style={{ marginBottom: 24 }}>
           {activeScenario.vision}
         </div>
 
-        {/* AI & Tokens (Collapsed style) */}
-        <div className="callout ok" style={{ fontSize: 13, marginBottom: 24 }}>
-           <strong>Estratégia IA:</strong> {activeScenario.aiCodeGenerationEstimate.assumptions.workflow}
-           <div className="row" style={{ marginTop: 10, gap: 12 }}>
-              <span className="muted">Total: {activeScenario.aiCodeGenerationEstimate.display.totalTokens}</span>
-              <span className="muted">Pricing: {activeScenario.aiCodeGenerationEstimate.display.pricing}</span>
-           </div>
-        </div>
-
         <div className="divider" />
 
-        {/* Backlog */}
-        <h3 className="sectionTitle">Backlog do Cenário</h3>
+        {/* Render Epics and Stories */}
+        {activeScenario.epics && activeScenario.epics.length > 0 ? (
+          activeScenario.epics.map((epic, epicIdx) => (
+            <div key={epic.id || epicIdx} className="epic">
+              <div className="epic-header">
+                <div className={`epic-index ${EPIC_COLORS[epicIdx % EPIC_COLORS.length]}`}>
+                  E{epicIdx + 1}
+                </div>
+                <div className="epic-title-wrap">
+                  <h4>{epic.title}</h4>
+                  <span className="epic-id">{epic.id}</span>
+                </div>
+              </div>
+              <p className="epic-description">{epic.description}</p>
 
-        {activeScenario.epics.map((epic, epicIdx) => (
-          <div key={epic.id} className="epic">
-            <div className="epic-header">
-              <div className={`epic-index \${EPIC_COLORS[epicIdx % EPIC_COLORS.length]}`}>
-                E{epicIdx + 1}
-              </div>
-              <div className="epic-title-wrap">
-                <h4>{epic.title}</h4>
-                <span className="epic-id">{epic.id}</span>
-              </div>
+              {/* Rendering Stories inside Epic */}
+              {epic.stories && epic.stories.length > 0 ? (
+                epic.stories.map((story, storyIdx) => (
+                  <div key={story.id || storyIdx} className="story">
+                    <div className="story-header">
+                      <span className="story-title">{story.title}</span>
+                      <span className="story-id">{story.id}</span>
+                    </div>
+                    <p className="story-description">{story.description}</p>
+
+                    <div className="story-tokens">
+                      🧩 {story.complexityPoints} pontos de complexidade
+                    </div>
+
+                    {story.acceptanceCriteria && story.acceptanceCriteria.length > 0 && (
+                      <>
+                        <div className="ac-label">Critérios de aceitação</div>
+                        <ul className="ac-list">
+                          {story.acceptanceCriteria.map((c, cIdx) => (
+                            <li key={cIdx}>{c}</li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="muted" style={{ padding: 10 }}>Nenhuma story encontrada para este épico.</div>
+              )}
             </div>
-            <p className="epic-description">{epic.description}</p>
-
-            {epic.stories.map((story) => (
-              <div key={story.id} className="story">
-                <div className="story-header">
-                  <span className="story-title">{story.title}</span>
-                  <span className="story-id">{story.id}</span>
-                </div>
-                <p className="story-description">{story.description}</p>
-
-                <div className="story-tokens">
-                  🧩 {story.complexityPoints} pontos
-                </div>
-
-                <div className="ac-label">Critérios de aceitação</div>
-                <ul className="ac-list">
-                  {story.acceptanceCriteria.map((c, idx) => (
-                    <li key={idx}>{c}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        ))}
+          ))
+        ) : (
+          <div className="muted">Nenhum épico encontrado para este cenário.</div>
+        )}
       </div>
     </div>
   );
